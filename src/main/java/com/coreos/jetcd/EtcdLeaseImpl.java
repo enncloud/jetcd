@@ -3,13 +3,19 @@ package com.coreos.jetcd;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.*;
 
-import com.coreos.jetcd.api.*;
+import com.coreos.jetcd.api.LeaseGrantRequest;
+import com.coreos.jetcd.api.LeaseGrantResponse;
+import com.coreos.jetcd.api.LeaseGrpc;
+import com.coreos.jetcd.api.LeaseKeepAliveRequest;
+import com.coreos.jetcd.api.LeaseKeepAliveResponse;
+import com.coreos.jetcd.api.LeaseRevokeRequest;
+import com.coreos.jetcd.api.LeaseRevokeResponse;
 import com.coreos.jetcd.lease.Lease;
 import com.coreos.jetcd.lease.NoSuchLeaseException;
 import com.google.common.util.concurrent.ListenableFuture;
-
 import io.grpc.ManagedChannel;
 import io.grpc.stub.StreamObserver;
 
@@ -33,7 +39,7 @@ public class EtcdLeaseImpl implements EtcdLease {
     private ScheduledFuture<?>                     scheduledFuture;
     private long                                   scanPeriod;
 
-    private Map<Long, Lease>                       keepAlives            = new ConcurrentHashMap<>();
+    private final Map<Long, Lease>                 keepAlives            = new ConcurrentHashMap<>();
 
     /**
      * The first time interval
@@ -51,13 +57,13 @@ public class EtcdLeaseImpl implements EtcdLease {
      */
     private StreamObserver<LeaseKeepAliveResponse> keepAliveResponseStreamObserver;
 
-    public EtcdLeaseImpl(final ManagedChannel channel) {
+    public EtcdLeaseImpl(final ManagedChannel channel, Optional<String> token) {
         /**
          * Init lease stub
          */
         this.channel = channel;
-        this.leaseFutureStub = LeaseGrpc.newFutureStub(this.channel);
-        this.leaseStub = LeaseGrpc.newStub(this.channel);
+        this.leaseFutureStub = EtcdClientUtil.configureStub(LeaseGrpc.newFutureStub(this.channel), token);
+        this.leaseStub = EtcdClientUtil.configureStub(LeaseGrpc.newStub(this.channel), token);
         this.scanPeriod = DEFAULT_SCAN_PERIOD;
     }
 
@@ -75,7 +81,7 @@ public class EtcdLeaseImpl implements EtcdLease {
          */
         synchronized (this) {
             if (isKeepAliveServiceRunning()) {
-                throw new IllegalStateException("Lease keep alive service already start");
+                throw new IllegalStateException("Lease keep alive service already started");
             }
             keepAliveResponseStreamObserver = new StreamObserver<LeaseKeepAliveResponse>() {
                 @Override
@@ -162,14 +168,37 @@ public class EtcdLeaseImpl implements EtcdLease {
      *
      * @param leaseId          id of lease to set handler
      * @param etcdLeaseHandler the handler for the lease, this value can be null
+     *
+     * @throws IllegalStateException this exception hints that the keep alive service wasn't started
      */
     @Override
     public synchronized void keepAlive(long leaseId, EtcdLeaseHandler etcdLeaseHandler) {
+        if(!isKeepAliveServiceRunning()){
+            throw new IllegalStateException("Lease keep alive service not started yet");
+        }
         if (!this.keepAlives.containsKey(leaseId)) {
             Lease lease = new Lease(leaseId, etcdLeaseHandler);
             long now = System.currentTimeMillis();
             lease.setNextKeepAlive(now).setDeadLine(now + firstKeepAliveTimeOut);
             this.keepAlives.put(leaseId, lease);
+        }
+    }
+
+    /**
+     * cancel keep alive for lease in background
+     *
+     * @param leaseId id of lease
+     */
+    @Override
+    public synchronized void cancelKeepAlive(long leaseId) throws ExecutionException, InterruptedException {
+        if(!isKeepAliveServiceRunning()){
+            throw new IllegalStateException("Lease keep alive service not started yet");
+        }
+        if (this.keepAlives.containsKey(leaseId)) {
+            keepAlives.remove(leaseId);
+            revoke(leaseId).get();
+        }else{
+            throw new IllegalStateException("Lease is not registered in the keep alive service");
         }
     }
 
@@ -328,7 +357,7 @@ public class EtcdLeaseImpl implements EtcdLease {
                 this.scheduledFuture.cancel(true);
                 this.scheduledFuture = null;
             } else {
-                throw new IllegalStateException("Lease keep alive service not start yet");
+                throw new IllegalStateException("Lease keep alive service not started yet");
             }
         }
     }
