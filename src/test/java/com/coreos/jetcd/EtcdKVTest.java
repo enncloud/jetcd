@@ -1,5 +1,6 @@
 package com.coreos.jetcd;
 
+import com.coreos.jetcd.lease.Lease;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 import org.testng.asserts.Assertion;
@@ -48,7 +49,7 @@ public class EtcdKVTest {
     public void testPutWithNotExistLease() throws Exception {
         ByteString sampleKey = ByteString.copyFrom("sample_key", "UTF-8");
         ByteString sampleValue = ByteString.copyFrom("sample_value", "UTF-8");
-        PutOption option = PutOption.newBuilder().withLeaseId(99999).build();
+        PutOption option = PutOption.newBuilder().withLeaseId(new Lease(9999,5, null)).build();
         ListenableFuture<PutResponse> feature = kvClient.put(sampleKey, sampleValue, option);
         try {
             PutResponse response = feature.get();
