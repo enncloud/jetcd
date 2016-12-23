@@ -1,7 +1,7 @@
 package com.coreos.jetcd.op;
 
 import com.coreos.jetcd.api.Compare;
-import com.google.protobuf.ByteString;
+import com.coreos.jetcd.data.ByteSequence;
 
 /**
  * Cmp target used in {@link Txn}
@@ -46,7 +46,7 @@ public abstract class CmpTarget<T> {
      * @param value the value to compare
      * @return the value compare target
      */
-    public static ValueCmpTarget value(ByteString value) {
+    public static ValueCmpTarget value(ByteSequence value) {
         return new ValueCmpTarget(value);
     }
 
@@ -94,8 +94,8 @@ public abstract class CmpTarget<T> {
         }
     }
 
-    private static final class ValueCmpTarget extends CmpTarget<ByteString> {
-        ValueCmpTarget(ByteString targetValue) {
+    private static final class ValueCmpTarget extends CmpTarget<ByteSequence> {
+        ValueCmpTarget(ByteSequence targetValue) {
             super(Compare.CompareTarget.VALUE, targetValue);
         }
     }

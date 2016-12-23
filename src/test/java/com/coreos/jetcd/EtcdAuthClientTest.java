@@ -1,18 +1,18 @@
 package com.coreos.jetcd;
 
-import java.nio.charset.Charset;
-import java.util.concurrent.ExecutionException;
+import com.google.protobuf.ByteString;
+
+import com.coreos.jetcd.api.AuthRoleGetResponse;
+import com.coreos.jetcd.api.Permission;
+import com.coreos.jetcd.exception.AuthFailedException;
+import com.coreos.jetcd.exception.ConnectException;
 
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 import org.testng.asserts.Assertion;
 
-import com.coreos.jetcd.api.AuthRoleGetResponse;
-import com.coreos.jetcd.api.Permission;
-import com.coreos.jetcd.api.RangeResponse;
-import com.coreos.jetcd.exception.AuthFailedException;
-import com.coreos.jetcd.exception.ConnectException;
-import com.google.protobuf.ByteString;
+import java.nio.charset.Charset;
+import java.util.concurrent.ExecutionException;
 
 import io.grpc.StatusRuntimeException;
 
@@ -21,21 +21,21 @@ import io.grpc.StatusRuntimeException;
  */
 public class EtcdAuthClientTest {
 
-    private EtcdAuth   authClient;
-    private EtcdKV     kvClient;
+    private EtcdAuth authClient;
+    private EtcdKV kvClient;
 
-    private ByteString roleName      = ByteString.copyFromUtf8("root");
+    private ByteString roleName = ByteString.copyFromUtf8("root");
 
     private ByteString keyRangeBegin = ByteString.copyFromUtf8("foo");
-    private ByteString keyRangeEnd   = ByteString.copyFromUtf8("zoo");
+    private ByteString keyRangeEnd = ByteString.copyFromUtf8("zoo");
 
-    private ByteString testKey       = ByteString.copyFromUtf8("foo1");
-    private ByteString testName      = ByteString.copyFromUtf8("bar");
+    private ByteString testKey = ByteString.copyFromUtf8("foo1");
+    private ByteString testName = ByteString.copyFromUtf8("bar");
 
-    private ByteString userName      = ByteString.copyFrom("root", Charset.defaultCharset());
-    private ByteString password      = ByteString.copyFrom("123", Charset.defaultCharset());
+    private ByteString userName = ByteString.copyFrom("root", Charset.defaultCharset());
+    private ByteString password = ByteString.copyFrom("123", Charset.defaultCharset());
 
-    private Assertion  test;
+    private Assertion test;
 
     private EtcdClient etcdClient;
     private EtcdClient authEtcdClient;
@@ -78,7 +78,7 @@ public class EtcdAuthClientTest {
     /**
      * grant user role
      */
-    @Test(dependsOnMethods = { "testUserAdd", "testRoleGrantPermission" }, groups = "user")
+    @Test(dependsOnMethods = {"testUserAdd", "testRoleGrantPermission"}, groups = "user")
     public void testUserGrantRole() throws ExecutionException, InterruptedException {
         this.authClient.userGrantRole(userName, roleName).get();
     }
@@ -107,9 +107,9 @@ public class EtcdAuthClientTest {
     public void testKVWithAuth() throws ExecutionException, InterruptedException {
         Throwable err = null;
         try {
-            this.authEtcdClient.getKVClient().put(testKey, testName).get();
-            RangeResponse rangeResponse = this.authEtcdClient.getKVClient().get(testKey).get();
-            this.test.assertTrue(rangeResponse.getCount() != 0 && rangeResponse.getKvs(0).getValue().equals(testName));
+            this.authEtcdClient.getKVClient().put(EtcdUtil.byteSequceFromByteString(testKey), EtcdUtil.byteSequceFromByteString(testName)).get();
+            EtcdKV.RangeResult rangeResult = this.authEtcdClient.getKVClient().get(EtcdUtil.byteSequceFromByteString(testKey)).get();
+            this.test.assertTrue(rangeResult.count != 0 && rangeResult.kvs.get(0).getValue().equals(EtcdUtil.byteSequceFromByteString(testName)));
         } catch (StatusRuntimeException sre) {
             err = sre;
         }
@@ -123,8 +123,8 @@ public class EtcdAuthClientTest {
     public void testKVWithoutAuth() throws InterruptedException {
         Throwable err = null;
         try {
-            this.kvClient.put(testKey, testName).get();
-            this.kvClient.get(testKey).get();
+            this.kvClient.put(EtcdUtil.byteSequceFromByteString(testKey), EtcdUtil.byteSequceFromByteString(testName)).get();
+            this.kvClient.get(EtcdUtil.byteSequceFromByteString(testKey)).get();
         } catch (ExecutionException sre) {
             err = sre;
         }

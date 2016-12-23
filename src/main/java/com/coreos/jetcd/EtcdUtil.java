@@ -1,5 +1,8 @@
 package com.coreos.jetcd;
 
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.protobuf.ByteString;
+
 import com.coreos.jetcd.api.Event;
 import com.coreos.jetcd.api.LeaseGrantResponse;
 import com.coreos.jetcd.api.ResponseHeader;
@@ -8,8 +11,6 @@ import com.coreos.jetcd.data.EtcdHeader;
 import com.coreos.jetcd.data.KeyValue;
 import com.coreos.jetcd.lease.Lease;
 import com.coreos.jetcd.watch.WatchEvent;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.protobuf.ByteString;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -35,8 +36,6 @@ class EtcdUtil {
 
     /**
      * convert ByteString to ByteSequence
-     *
-     * @return
      */
     protected static ByteSequence byteSequceFromByteString(ByteString byteString) {
         return ByteSequence.fromBytes(byteString.toByteArray());
@@ -46,6 +45,9 @@ class EtcdUtil {
      * convert API KeyValue to etcd client KeyValue
      */
     protected static KeyValue apiToClientKV(com.coreos.jetcd.api.KeyValue keyValue) {
+        if (keyValue == null) {
+            return null;
+        }
         return new KeyValue(
                 byteSequceFromByteString(keyValue.getKey()),
                 byteSequceFromByteString(keyValue.getValue()),
@@ -83,6 +85,9 @@ class EtcdUtil {
      * convert API response header to self defined header
      */
     protected static EtcdHeader apiToClientHeader(ResponseHeader header, long compactRevision) {
+        if (header == null) {
+            return null;
+        }
         return new EtcdHeader(header.getClusterId(), header.getMemberId(), header.getRevision(), header.getRaftTerm(), compactRevision);
     }
 

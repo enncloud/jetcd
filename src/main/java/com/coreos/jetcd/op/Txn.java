@@ -1,10 +1,9 @@
 package com.coreos.jetcd.op;
 
-import java.util.List;
-
-import com.coreos.jetcd.api.TxnRequest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+
+import java.util.List;
 
 /**
  * Build an etcd transaction.
@@ -46,27 +45,9 @@ public class Txn {
         }
     }
 
-    private final List<Cmp> cmpList;
-    private final List<Op>  successOpList;
-    private final List<Op>  failureOpList;
-
-    public TxnRequest toTxnRequest() {
-        TxnRequest.Builder requestBuilder = TxnRequest.newBuilder();
-
-        for (Cmp c : this.cmpList) {
-            requestBuilder.addCompare(c.toCompare());
-        }
-
-        for (Op o : this.successOpList) {
-            requestBuilder.addSuccess(o.toRequestOp());
-        }
-
-        for (Op o : this.failureOpList) {
-            requestBuilder.addFailure(o.toRequestOp());
-        }
-
-        return requestBuilder.build();
-    }
+    public final List<Cmp> cmpList;
+    public final List<Op>  successOpList;
+    public final List<Op>  failureOpList;
 
     private Txn(List<Cmp> cmpList, List<Op> successOpList, List<Op> failureOpList) {
         this.cmpList = cmpList;

@@ -1,9 +1,9 @@
 package com.coreos.jetcd.options;
 
-import java.util.Optional;
-
 import com.coreos.jetcd.api.RangeRequest;
-import com.google.protobuf.ByteString;
+import com.coreos.jetcd.data.ByteSequence;
+
+import java.util.Optional;
 
 /**
  * The option for get operation.
@@ -30,7 +30,7 @@ public final class GetOption {
         private boolean                 serializable = false;
         private boolean                 keysOnly     = false;
         private boolean                 countOnly    = false;
-        private Optional<ByteString>    endKey       = Optional.empty();
+        private Optional<ByteSequence>    endKey       = Optional.empty();
 
         private Builder() {
         }
@@ -126,7 +126,7 @@ public final class GetOption {
          * @param endKey end key
          * @return builder
          */
-        public Builder withRange(ByteString endKey) {
+        public Builder withRange(ByteSequence endKey) {
             this.endKey = Optional.ofNullable(endKey);
             return this;
         }
@@ -137,7 +137,7 @@ public final class GetOption {
 
     }
 
-    private final Optional<ByteString>    endKey;
+    private final Optional<ByteSequence>    endKey;
     private final long                    limit;
     private final long                    revision;
     private final RangeRequest.SortOrder  sortOrder;
@@ -146,7 +146,7 @@ public final class GetOption {
     private final boolean                 keysOnly;
     private final boolean                 countOnly;
 
-    private GetOption(Optional<ByteString> endKey, long limit, long revision, RangeRequest.SortOrder sortOrder,
+    private GetOption(Optional<ByteSequence> endKey, long limit, long revision, RangeRequest.SortOrder sortOrder,
                       RangeRequest.SortTarget sortTarget, boolean serializable, boolean keysOnly, boolean countOnly) {
         this.endKey = endKey;
         this.limit = limit;
@@ -167,7 +167,7 @@ public final class GetOption {
         return this.limit;
     }
 
-    public Optional<ByteString> getEndKey() {
+    public Optional<ByteSequence> getEndKey() {
         return this.endKey;
     }
 
