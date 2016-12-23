@@ -1,13 +1,9 @@
 package com.coreos.jetcd.op;
 
-import com.coreos.jetcd.api.DeleteRangeRequest;
-import com.coreos.jetcd.api.PutRequest;
-import com.coreos.jetcd.api.RangeRequest;
-import com.coreos.jetcd.api.RequestOp;
+import com.coreos.jetcd.data.ByteSequence;
 import com.coreos.jetcd.options.DeleteOption;
 import com.coreos.jetcd.options.GetOption;
 import com.coreos.jetcd.options.PutOption;
-import com.google.protobuf.ByteString;
 
 /**
  * Etcd Operation
@@ -22,97 +18,54 @@ public abstract class Op {
     }
 
     protected final Type       type;
-    protected final ByteString key;
+    public final ByteSequence key;
 
-    protected Op(Type type, ByteString key) {
+    protected Op(Type type, ByteSequence key) {
         this.type = type;
         this.key = key;
     }
 
-    abstract RequestOp toRequestOp();
-
-    public static PutOp put(ByteString key, ByteString value, PutOption option) {
+    public static PutOp put(ByteSequence key, ByteSequence value, PutOption option) {
         return new PutOp(key, value, option);
     }
 
-    public static GetOp get(ByteString key, GetOption option) {
+    public static GetOp get(ByteSequence key, GetOption option) {
         return new GetOp(key, option);
     }
 
-    public static DeleteOp delete(ByteString key, DeleteOption option) {
+    public static DeleteOp delete(ByteSequence key, DeleteOption option) {
         return new DeleteOp(key, option);
     }
 
     public static final class PutOp extends Op {
 
-        private final ByteString value;
-        private final PutOption  option;
+        public final ByteSequence value;
+        public final PutOption  option;
 
-        protected PutOp(ByteString key, ByteString value, PutOption option) {
+        protected PutOp(ByteSequence key, ByteSequence value, PutOption option) {
             super(Type.PUT, key);
             this.value = value;
             this.option = option;
-        }
-
-        RequestOp toRequestOp() {
-            PutRequest put = PutRequest.newBuilder()
-                .setKey(this.key)
-                .setValue(this.value)
-                .setLease(this.option.getLeaseId())
-                .setPrevKv(this.option.getPrevKV())
-                .build();
-
-            return RequestOp.newBuilder().setRequestPut(put).build();
         }
     }
 
     public static final class GetOp extends Op {
 
-        private final GetOption option;
+        public final GetOption option;
 
-        protected GetOp(ByteString key, GetOption option) {
+        protected GetOp(ByteSequence key, GetOption option) {
             super(Type.RANGE, key);
             this.option = option;
-        }
-
-        RequestOp toRequestOp() {
-            RangeRequest.Builder range = RangeRequest.newBuilder()
-                .setKey(this.key)
-                .setCountOnly(this.option.isCountOnly())
-                .setLimit(this.option.getLimit())
-                .setRevision(this.option.getRevision())
-                .setKeysOnly(this.option.isKeysOnly())
-                .setSerializable(this.option.isSerializable())
-                .setSortOrder(this.option.getSortOrder())
-                .setSortTarget(this.option.getSortField());
-
-            if (this.option.getEndKey().isPresent()) {
-                range.setRangeEnd(this.option.getEndKey().get());
-            }
-
-            return RequestOp.newBuilder().setRequestRange(range).build();
         }
     }
 
     public static final class DeleteOp extends Op {
 
-        private final DeleteOption option;
+        public final DeleteOption option;
 
-        protected DeleteOp(ByteString key, DeleteOption option) {
+        protected DeleteOp(ByteSequence key, DeleteOption option) {
             super(Type.DELETE_RANGE, key);
             this.option = option;
-        }
-
-        RequestOp toRequestOp() {
-            DeleteRangeRequest.Builder delete = DeleteRangeRequest.newBuilder()
-                .setKey(this.key)
-                .setPrevKv(this.option.isPrevKV());
-
-            if (this.option.getEndKey().isPresent()) {
-                delete.setRangeEnd(this.option.getEndKey().get());
-            }
-
-            return RequestOp.newBuilder().setRequestDeleteRange(delete).build();
         }
     }
 }

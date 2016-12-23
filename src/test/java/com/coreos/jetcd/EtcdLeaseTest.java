@@ -1,10 +1,10 @@
 package com.coreos.jetcd;
 
 import com.coreos.jetcd.api.LeaseKeepAliveResponse;
-import com.coreos.jetcd.api.PutResponse;
+import com.coreos.jetcd.data.ByteSequence;
 import com.coreos.jetcd.lease.Lease;
 import com.coreos.jetcd.options.PutOption;
-import com.google.protobuf.ByteString;
+
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 import org.testng.asserts.Assertion;
@@ -20,8 +20,8 @@ public class EtcdLeaseTest {
     private Assertion test;
 
 
-    private ByteString testKey = ByteString.copyFromUtf8("foo1");
-    private ByteString testName = ByteString.copyFromUtf8("bar");
+    private ByteSequence testKey = ByteSequence.fromString("foo1");
+    private ByteSequence testName = ByteSequence.fromString("bar");
 
     @BeforeTest
     public void setUp() throws Exception {
@@ -35,27 +35,27 @@ public class EtcdLeaseTest {
     @Test
     public void testGrant() throws Exception {
         Lease lease = leaseClient.grant(5).get();
-        PutResponse putRep = kvClient.put(testKey, testName, PutOption.newBuilder().withLeaseId(lease).build()).get();
-        test.assertEquals(kvClient.get(testKey).get().getCount(), 1);
+        kvClient.put(testKey, testName, PutOption.newBuilder().withLeaseId(lease).build()).get();
+        test.assertEquals(kvClient.get(testKey).get().count, 1);
 
         Thread.sleep(6000);
-        test.assertEquals(kvClient.get(testKey).get().getCount(), 0);
+        test.assertEquals(kvClient.get(testKey).get().count, 0);
     }
 
     @Test(dependsOnMethods = "testGrant")
     public void testRevoke() throws Exception {
         Lease lease = leaseClient.grant(5).get();
-        PutResponse putRep = kvClient.put(testKey, testName, PutOption.newBuilder().withLeaseId(lease).build()).get();
-        test.assertEquals(kvClient.get(testKey).get().getCount(), 1);
+        kvClient.put(testKey, testName, PutOption.newBuilder().withLeaseId(lease).build()).get();
+        test.assertEquals(kvClient.get(testKey).get().count, 1);
         leaseClient.revoke(lease).get();
-        test.assertEquals(kvClient.get(testKey).get().getCount(), 0);
+        test.assertEquals(kvClient.get(testKey).get().count, 0);
     }
 
     @Test(dependsOnMethods = "testRevoke")
     public void testkeepAlive() throws Exception {
         Lease lease = leaseClient.grant(5).get();
-        PutResponse putRep = kvClient.put(testKey, testName, PutOption.newBuilder().withLeaseId(lease).build()).get();
-        test.assertEquals(kvClient.get(testKey).get().getCount(), 1);
+        kvClient.put(testKey, testName, PutOption.newBuilder().withLeaseId(lease).build()).get();
+        test.assertEquals(kvClient.get(testKey).get().count, 1);
         leaseClient.startKeepAliveService();
         leaseClient.keepAlive(lease, new EtcdLease.EtcdLeaseHandler() {
             @Override
@@ -74,8 +74,8 @@ public class EtcdLeaseTest {
             }
         });
         Thread.sleep(6000);
-        test.assertEquals(kvClient.get(testKey).get().getCount(), 1);
+        test.assertEquals(kvClient.get(testKey).get().count, 1);
         leaseClient.cancelKeepAlive(lease);
-        test.assertEquals(kvClient.get(testKey).get().getCount(), 0);
+        test.assertEquals(kvClient.get(testKey).get().count, 0);
     }
 }

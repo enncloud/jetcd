@@ -6,12 +6,18 @@ import com.coreos.jetcd.exception.AuthFailedException;
 import com.coreos.jetcd.exception.ConnectException;
 import com.coreos.jetcd.options.WatchOption;
 import com.coreos.jetcd.watch.WatchEvent;
+
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 import org.testng.asserts.Assertion;
 
 import java.util.List;
-import java.util.concurrent.*;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * watch test case.
@@ -70,7 +76,7 @@ public class EtcdWatchTest {
      */
     @Test(dependsOnMethods = "testWatch")
     public void testWatchPut() throws InterruptedException {
-        kvClient.put(EtcdUtil.byteStringFromByteSequence(key), EtcdUtil.byteStringFromByteSequence(value));
+        kvClient.put(key, value);
         WatchEvent event = eventsQueue.poll(5, TimeUnit.SECONDS);
         test.assertEquals(event.getKeyValue().getKey(), key);
         test.assertEquals(event.getEventType(), WatchEvent.EventType.PUT);
@@ -82,7 +88,7 @@ public class EtcdWatchTest {
      */
     @Test(dependsOnMethods = "testWatchPut")
     public void testWatchDelete() throws InterruptedException {
-        kvClient.delete(EtcdUtil.byteStringFromByteSequence(key));
+        kvClient.delete(key);
         WatchEvent event = eventsQueue.poll(5, TimeUnit.SECONDS);
         test.assertEquals(event.getKeyValue().getKey(), key);
         test.assertEquals(event.getEventType(), WatchEvent.EventType.DELETE);
