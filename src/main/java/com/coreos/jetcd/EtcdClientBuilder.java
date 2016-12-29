@@ -2,12 +2,11 @@ package com.coreos.jetcd;
 
 import java.util.List;
 
+import com.coreos.jetcd.data.ByteSequence;
 import com.coreos.jetcd.exception.AuthFailedException;
 import com.coreos.jetcd.exception.ConnectException;
 import com.coreos.jetcd.resolver.AbstractEtcdNameResolverFactory;
 import com.google.common.collect.Lists;
-import com.google.protobuf.ByteString;
-
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -18,8 +17,8 @@ import static com.google.common.base.Preconditions.checkState;
 public class EtcdClientBuilder {
 
     private List<String> endpoints = Lists.newArrayList();
-    private ByteString   name;
-    private ByteString   password;
+    private ByteSequence name;
+    private ByteSequence   password;
     private AbstractEtcdNameResolverFactory nameResolverFactory;
 
     private EtcdClientBuilder() {
@@ -61,7 +60,7 @@ public class EtcdClientBuilder {
         return this;
     }
 
-    public ByteString getName() {
+    public ByteSequence getName() {
         return name;
     }
 
@@ -72,13 +71,13 @@ public class EtcdClientBuilder {
      * @return this builder
      * @throws NullPointerException if name is null
      */
-    public EtcdClientBuilder setName(ByteString name) {
+    public EtcdClientBuilder setName(ByteSequence name) {
         checkNotNull(name, "name can't be null");
         this.name = name;
         return this;
     }
 
-    public ByteString getPassword() {
+    public ByteSequence getPassword() {
         return password;
     }
 
@@ -89,7 +88,7 @@ public class EtcdClientBuilder {
      * @return this builder
      * @throws NullPointerException if password is null
      */
-    public EtcdClientBuilder setPassword(ByteString password) {
+    public EtcdClientBuilder setPassword(ByteSequence password) {
         checkNotNull(name, "password can't be null");
         this.password = password;
         return this;

@@ -54,7 +54,7 @@ public class EtcdWatchTest {
              * @param events received events
              */
             @Override
-            public void onWatch(EtcdHeader header, List<WatchEvent> events) {
+            public void onWatch(EtcdHeader header, long compactRevision, List<WatchEvent> events) {
                 EtcdWatchTest.this.eventsQueue.addAll(events);
             }
 

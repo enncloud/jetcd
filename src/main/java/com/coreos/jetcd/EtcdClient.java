@@ -135,7 +135,7 @@ public class EtcdClient {
             checkArgument(builder.getPassword().toStringUtf8().trim().length() != 0, "password can not be null.");
 
             try {
-                return Optional.of(authenticate(channel, builder.getName(), builder.getPassword()).get().getToken());
+                return Optional.of(authenticate(channel, EtcdUtil.byteStringFromByteSequence(builder.getName()), EtcdUtil.byteStringFromByteSequence(builder.getPassword())).get().getToken());
             } catch (InterruptedException ite) {
                 throw new ConnectException("connect to etcd failed", ite);
             } catch (ExecutionException exee) {

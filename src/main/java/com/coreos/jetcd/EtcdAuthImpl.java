@@ -1,51 +1,48 @@
 package com.coreos.jetcd;
 
-import java.util.Optional;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 
 import com.coreos.jetcd.api.AuthDisableRequest;
-import com.coreos.jetcd.api.AuthDisableResponse;
 import com.coreos.jetcd.api.AuthEnableRequest;
-import com.coreos.jetcd.api.AuthEnableResponse;
 import com.coreos.jetcd.api.AuthGrpc;
 import com.coreos.jetcd.api.AuthRoleAddRequest;
-import com.coreos.jetcd.api.AuthRoleAddResponse;
 import com.coreos.jetcd.api.AuthRoleDeleteRequest;
-import com.coreos.jetcd.api.AuthRoleDeleteResponse;
 import com.coreos.jetcd.api.AuthRoleGetRequest;
-import com.coreos.jetcd.api.AuthRoleGetResponse;
 import com.coreos.jetcd.api.AuthRoleGrantPermissionRequest;
-import com.coreos.jetcd.api.AuthRoleGrantPermissionResponse;
 import com.coreos.jetcd.api.AuthRoleListRequest;
-import com.coreos.jetcd.api.AuthRoleListResponse;
 import com.coreos.jetcd.api.AuthRoleRevokePermissionRequest;
-import com.coreos.jetcd.api.AuthRoleRevokePermissionResponse;
 import com.coreos.jetcd.api.AuthUserAddRequest;
-import com.coreos.jetcd.api.AuthUserAddResponse;
 import com.coreos.jetcd.api.AuthUserChangePasswordRequest;
-import com.coreos.jetcd.api.AuthUserChangePasswordResponse;
 import com.coreos.jetcd.api.AuthUserDeleteRequest;
-import com.coreos.jetcd.api.AuthUserDeleteResponse;
 import com.coreos.jetcd.api.AuthUserGetRequest;
-import com.coreos.jetcd.api.AuthUserGetResponse;
 import com.coreos.jetcd.api.AuthUserGrantRoleRequest;
-import com.coreos.jetcd.api.AuthUserGrantRoleResponse;
 import com.coreos.jetcd.api.AuthUserListRequest;
-import com.coreos.jetcd.api.AuthUserListResponse;
 import com.coreos.jetcd.api.AuthUserRevokeRoleRequest;
-import com.coreos.jetcd.api.AuthUserRevokeRoleResponse;
 import com.coreos.jetcd.api.Permission;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.protobuf.ByteString;
+import com.coreos.jetcd.auth.Perm;
+import com.coreos.jetcd.auth.Role;
+import com.coreos.jetcd.data.ByteSequence;
+import com.coreos.jetcd.data.EtcdHeader;
+
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+
 import io.grpc.ManagedChannel;
 
 /**
  * Implementation of etcd auth client
  */
 public class EtcdAuthImpl implements EtcdAuth {
+    
     private final AuthGrpc.AuthFutureStub stub;
-
+    private Supplier<Executor> callExector;
+    
     public EtcdAuthImpl(ManagedChannel channel, Optional<String> token) {
         this.stub = EtcdClientUtil.configureStub(AuthGrpc.newFutureStub(channel), token);
+        callExector = Suppliers.memoize(()-> Executors.newSingleThreadExecutor());
     }
 
     // ***************
@@ -53,15 +50,15 @@ public class EtcdAuthImpl implements EtcdAuth {
     // ***************
 
     @Override
-    public ListenableFuture<AuthEnableResponse> authEnable() {
+    public CompletableFuture<EtcdHeader> authEnable() {
         AuthEnableRequest enableRequest = AuthEnableRequest.getDefaultInstance();
-        return this.stub.authEnable(enableRequest);
+        return EtcdUtil.completableFromListenableFuture(this.stub.authEnable(enableRequest), request->EtcdUtil.apiToClientHeader(request.getHeader()), callExector.get());
     }
 
     @Override
-    public ListenableFuture<AuthDisableResponse> authDisable() {
+    public CompletableFuture<EtcdHeader> authDisable() {
         AuthDisableRequest disableRequest = AuthDisableRequest.getDefaultInstance();
-        return this.stub.authDisable(disableRequest);
+        return EtcdUtil.completableFromListenableFuture(this.stub.authDisable(disableRequest), request->EtcdUtil.apiToClientHeader(request.getHeader()), callExector.get());
     }
 
     // ***************
@@ -69,43 +66,53 @@ public class EtcdAuthImpl implements EtcdAuth {
     // ***************
 
     @Override
-    public ListenableFuture<AuthUserAddResponse> userAdd(ByteString name, ByteString password) {
+    public CompletableFuture<EtcdHeader> userAdd(ByteSequence name, ByteSequence password) {
         AuthUserAddRequest addRequest = AuthUserAddRequest.newBuilder()
-                .setNameBytes(name)
-                .setPasswordBytes(password)
+                .setNameBytes(EtcdUtil.byteStringFromByteSequence(name))
+                .setPasswordBytes(EtcdUtil.byteStringFromByteSequence(password))
                 .build();
-        return this.stub.userAdd(addRequest);
+        return EtcdUtil.completableFromListenableFuture(this.stub.userAdd(addRequest), response->EtcdUtil.apiToClientHeader(response.getHeader()), callExector.get());
     }
 
     @Override
-    public ListenableFuture<AuthUserDeleteResponse> userDelete(ByteString name) {
+    public CompletableFuture<EtcdHeader> userDelete(ByteSequence name) {
         AuthUserDeleteRequest deleteRequest = AuthUserDeleteRequest.newBuilder()
-                .setNameBytes(name).build();
-        return this.stub.userDelete(deleteRequest);
+                .setNameBytes(EtcdUtil.byteStringFromByteSequence(name)).build();
+        return EtcdUtil.completableFromListenableFuture(this.stub.userDelete(deleteRequest), response->EtcdUtil.apiToClientHeader(response.getHeader()), callExector.get());
     }
 
     @Override
-    public ListenableFuture<AuthUserChangePasswordResponse> userChangePassword(ByteString name, ByteString password) {
+    public CompletableFuture<EtcdHeader> userChangePassword(ByteSequence name, ByteSequence password) {
         AuthUserChangePasswordRequest changePasswordRequest = AuthUserChangePasswordRequest.newBuilder()
-                .setNameBytes(name)
-                .setPasswordBytes(password)
+                .setNameBytes(EtcdUtil.byteStringFromByteSequence(name))
+                .setPasswordBytes(EtcdUtil.byteStringFromByteSequence(password))
                 .build();
-        return this.stub.userChangePassword(changePasswordRequest);
+        return EtcdUtil.completableFromListenableFuture(this.stub.userChangePassword(changePasswordRequest),response->EtcdUtil.apiToClientHeader(response.getHeader()), callExector.get());
     }
 
     @Override
-    public ListenableFuture<AuthUserGetResponse> userGet(ByteString name) {
+    public CompletableFuture<GetUserResult> userGet(ByteSequence name) {
         AuthUserGetRequest userGetRequest = AuthUserGetRequest.newBuilder()
-                .setNameBytes(name)
+                .setNameBytes(EtcdUtil.byteStringFromByteSequence(name))
                 .build();
 
-        return this.stub.userGet(userGetRequest);
+        return EtcdUtil.completableFromListenableFuture(this.stub.userGet(userGetRequest), response->{
+            String[] roles = new String[response.getRolesCount()];
+
+            for(int index=0; index<response.getRolesCount(); index++){
+                roles[index] = response.getRoles(index);
+            }
+            return new GetUserResult(EtcdUtil.apiToClientHeader(response.getHeader()), name, roles);
+        }, callExector.get());
     }
 
     @Override
-    public ListenableFuture<AuthUserListResponse> userList() {
+    public CompletableFuture<ListUserResult> userList() {
         AuthUserListRequest userListRequest = AuthUserListRequest.getDefaultInstance();
-        return this.stub.userList(userListRequest);
+        return EtcdUtil.completableFromListenableFuture(this.stub.userList(userListRequest), response->{
+            String[] users = new String[response.getUsersCount()];
+            return new ListUserResult(EtcdUtil.apiToClientHeader(response.getHeader()), users);
+        }, callExector.get());
     }
 
     // ***************
@@ -113,21 +120,21 @@ public class EtcdAuthImpl implements EtcdAuth {
     // ***************
 
     @Override
-    public ListenableFuture<AuthUserGrantRoleResponse> userGrantRole(ByteString name, ByteString role) {
+    public CompletableFuture<EtcdHeader> userGrantRole(ByteSequence name, ByteSequence role) {
         AuthUserGrantRoleRequest userGrantRoleRequest = AuthUserGrantRoleRequest.newBuilder()
-                .setUserBytes(name)
-                .setRoleBytes(role)
+                .setUserBytes(EtcdUtil.byteStringFromByteSequence(name))
+                .setRoleBytes(EtcdUtil.byteStringFromByteSequence(role))
                 .build();
-        return this.stub.userGrantRole(userGrantRoleRequest);
+        return EtcdUtil.completableFromListenableFuture(this.stub.userGrantRole(userGrantRoleRequest), response->EtcdUtil.apiToClientHeader(response.getHeader()), callExector.get());
     }
 
     @Override
-    public ListenableFuture<AuthUserRevokeRoleResponse> userRevokeRole(ByteString name, ByteString role) {
+    public CompletableFuture<EtcdHeader> userRevokeRole(ByteSequence name, ByteSequence role) {
         AuthUserRevokeRoleRequest userRevokeRoleRequest = AuthUserRevokeRoleRequest.newBuilder()
-                .setNameBytes(name)
-                .setRoleBytes(role)
+                .setNameBytes(EtcdUtil.byteStringFromByteSequence(name))
+                .setRoleBytes(EtcdUtil.byteStringFromByteSequence(role))
                 .build();
-        return this.stub.userRevokeRole(userRevokeRoleRequest);
+        return EtcdUtil.completableFromListenableFuture(this.stub.userRevokeRole(userRevokeRoleRequest), response->EtcdUtil.apiToClientHeader(response.getHeader()), callExector.get());
     }
 
     // ***************
@@ -135,60 +142,107 @@ public class EtcdAuthImpl implements EtcdAuth {
     // ***************
 
     @Override
-    public ListenableFuture<AuthRoleAddResponse> roleAdd(ByteString name) {
+    public CompletableFuture<EtcdHeader> roleAdd(ByteSequence name) {
         AuthRoleAddRequest roleAddRequest = AuthRoleAddRequest.newBuilder()
-                .setNameBytes(name)
+                .setNameBytes(EtcdUtil.byteStringFromByteSequence(name))
                 .build();
-        return this.stub.roleAdd(roleAddRequest);
+        return EtcdUtil.completableFromListenableFuture(this.stub.roleAdd(roleAddRequest), response->EtcdUtil.apiToClientHeader(response.getHeader()), callExector.get());
     }
 
     @Override
-    public ListenableFuture<AuthRoleGrantPermissionResponse> roleGrantPermission(ByteString role, ByteString key, ByteString rangeEnd, Permission.Type permType) {
-        Permission perm = Permission.newBuilder()
-                .setKey(key)
-                .setRangeEnd(rangeEnd)
-                .setPermType(permType)
-                .build();
+    public CompletableFuture<EtcdHeader> roleGrantPermission(ByteSequence role, Perm p) {
         AuthRoleGrantPermissionRequest roleGrantPermissionRequest = AuthRoleGrantPermissionRequest.newBuilder()
-                .setNameBytes(role)
-                .setPerm(perm)
+                .setNameBytes(EtcdUtil.byteStringFromByteSequence(role))
+                .setPerm(convertToAPIPerm(p))
                 .build();
-
-        return this.stub.roleGrantPermission(roleGrantPermissionRequest);
+        return EtcdUtil.completableFromListenableFuture(this.stub.roleGrantPermission(roleGrantPermissionRequest), response->EtcdUtil.apiToClientHeader(response.getHeader()),callExector.get());
     }
 
     @Override
-    public ListenableFuture<AuthRoleGetResponse> roleGet(ByteString role) {
+    public CompletableFuture<GetRoleResult> roleGet(ByteSequence role) {
         AuthRoleGetRequest roleGetRequest = AuthRoleGetRequest.newBuilder()
-                .setRoleBytes(role)
+                .setRoleBytes(EtcdUtil.byteStringFromByteSequence(role))
                 .build();
-        return this.stub.roleGet(roleGetRequest);
+        return EtcdUtil.completableFromListenableFuture(this.stub.roleGet(roleGetRequest), response->{
+            Perm[] perms = new Perm[response.getPermCount()];
+            for(int index=0; index<response.getPermCount(); index++){
+                perms[index] = convertFromAPIPerm(response.getPerm(index));
+            }
+            return new GetRoleResult(EtcdUtil.apiToClientHeader(response.getHeader()), new Role(role, perms));
+        }, callExector.get());
     }
 
     @Override
-    public ListenableFuture<AuthRoleListResponse> roleList() {
+    public CompletableFuture<ListRoleResult> roleList() {
         AuthRoleListRequest roleListRequest = AuthRoleListRequest.getDefaultInstance();
-        return this.stub.roleList(roleListRequest);
+        return EtcdUtil.completableFromListenableFuture(this.stub.roleList(roleListRequest), response->{
+            String[] roles = new String[response.getRolesCount()];
+            for(int index = 0; index< response.getRolesCount(); index++){
+                roles[index] = response.getRoles(index);
+            }
+            return new ListRoleResult(EtcdUtil.apiToClientHeader(response.getHeader()), roles);
+        }, callExector.get());
     }
 
     @Override
-    public ListenableFuture<AuthRoleRevokePermissionResponse> roleRevokePermission(ByteString role, ByteString key, ByteString rangeEnd) {
+    public CompletableFuture<EtcdHeader> roleRevokePermission(ByteSequence role, ByteSequence key, ByteSequence rangeEnd) {
 
         AuthRoleRevokePermissionRequest roleRevokePermissionRequest = AuthRoleRevokePermissionRequest.newBuilder()
-                .setRoleBytes(role)
-                .setKeyBytes(key)
-                .setRangeEndBytes(rangeEnd)
+                .setRoleBytes(EtcdUtil.byteStringFromByteSequence(role))
+                .setKeyBytes(EtcdUtil.byteStringFromByteSequence(key))
+                .setRangeEndBytes(EtcdUtil.byteStringFromByteSequence(rangeEnd))
                 .build();
-        return this.stub.roleRevokePermission(roleRevokePermissionRequest);
+        return EtcdUtil.completableFromListenableFuture(this.stub.roleRevokePermission(roleRevokePermissionRequest), response->EtcdUtil.apiToClientHeader(response.getHeader()), callExector.get());
     }
 
     @Override
-    public ListenableFuture<AuthRoleDeleteResponse> roleDelete(ByteString role) {
+    public CompletableFuture<EtcdHeader> roleDelete(ByteSequence role) {
 
         AuthRoleDeleteRequest roleDeleteRequest = AuthRoleDeleteRequest.newBuilder()
-                .setRoleBytes(role)
+                .setRoleBytes(EtcdUtil.byteStringFromByteSequence(role))
                 .build();
-        return this.stub.roleDelete(roleDeleteRequest);
+        return EtcdUtil.completableFromListenableFuture(this.stub.roleDelete(roleDeleteRequest), response->EtcdUtil.apiToClientHeader(response.getHeader()), callExector.get());
+    }
+
+    private Permission convertToAPIPerm(Perm p){
+        Permission.Builder permBuilder = Permission.newBuilder();
+        if(p.key.isPresent())permBuilder.setKey(EtcdUtil.byteStringFromByteSequence(p.key.get()));
+        if(p.endKey.isPresent())permBuilder.setRangeEnd(EtcdUtil.byteStringFromByteSequence(p.endKey.get()));
+        switch (p.type){
+            case READ:
+                permBuilder.setPermType(Permission.Type.READ);
+                break;
+            case WRITE:
+                permBuilder.setPermType(Permission.Type.WRITE);
+                break;
+            case READWRITE:
+                permBuilder.setPermType(Permission.Type.READWRITE);
+                break;
+        }
+        return permBuilder.build();
+    }
+
+    private Perm convertFromAPIPerm(Permission p){
+        Perm.PermBuilder builder = Perm.newBuilder();
+        if(!p.getKey().isEmpty())
+        {
+            builder.withKey(EtcdUtil.byteSequceFromByteString(p.getKey()));
+        }
+        if(!p.getRangeEnd().isEmpty()){
+            builder.withEndKey(EtcdUtil.byteSequceFromByteString(p.getRangeEnd()));
+        }
+        switch (p.getPermType()){
+            case READ:
+                builder.withType(Perm.Type.READ);
+                break;
+            case WRITE:
+                builder.withType(Perm.Type.WRITE);
+                break;
+            case READWRITE:
+                builder.withType(Perm.Type.READWRITE);
+                break;
+        }
+        return builder.build();
     }
 
 }

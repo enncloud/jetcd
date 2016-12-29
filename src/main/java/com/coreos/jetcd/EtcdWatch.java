@@ -64,7 +64,7 @@ public interface EtcdWatch {
          *
          * @param events received events
          */
-        void onWatch(EtcdHeader header, List<WatchEvent> events);
+        void onWatch(EtcdHeader header, long compactRevision, List<WatchEvent> events);
 
         /**
          * onResuming will be called when the watcher is on resuming.

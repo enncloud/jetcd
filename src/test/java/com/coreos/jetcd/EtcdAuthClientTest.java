@@ -1,9 +1,8 @@
 package com.coreos.jetcd;
 
-import com.google.protobuf.ByteString;
 
-import com.coreos.jetcd.api.AuthRoleGetResponse;
-import com.coreos.jetcd.api.Permission;
+import com.coreos.jetcd.auth.Perm;
+import com.coreos.jetcd.data.ByteSequence;
 import com.coreos.jetcd.exception.AuthFailedException;
 import com.coreos.jetcd.exception.ConnectException;
 
@@ -11,7 +10,6 @@ import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 import org.testng.asserts.Assertion;
 
-import java.nio.charset.Charset;
 import java.util.concurrent.ExecutionException;
 
 import io.grpc.StatusRuntimeException;
@@ -24,16 +22,16 @@ public class EtcdAuthClientTest {
     private EtcdAuth authClient;
     private EtcdKV kvClient;
 
-    private ByteString roleName = ByteString.copyFromUtf8("root");
+    private ByteSequence roleName = ByteSequence.fromString("root");
 
-    private ByteString keyRangeBegin = ByteString.copyFromUtf8("foo");
-    private ByteString keyRangeEnd = ByteString.copyFromUtf8("zoo");
+    private ByteSequence keyRangeBegin = ByteSequence.fromString("foo");
+    private ByteSequence keyRangeEnd = ByteSequence.fromString("zoo");
 
-    private ByteString testKey = ByteString.copyFromUtf8("foo1");
-    private ByteString testName = ByteString.copyFromUtf8("bar");
+    private ByteSequence testKey = ByteSequence.fromString("foo1");
+    private ByteSequence testName = ByteSequence.fromString("bar");
 
-    private ByteString userName = ByteString.copyFrom("root", Charset.defaultCharset());
-    private ByteString password = ByteString.copyFrom("123", Charset.defaultCharset());
+    private ByteSequence userName = ByteSequence.fromString("root");
+    private ByteSequence password = ByteSequence.fromString("123");
 
     private Assertion test;
 
@@ -64,7 +62,7 @@ public class EtcdAuthClientTest {
      */
     @Test(dependsOnMethods = "testRoleAdd", groups = "role")
     public void testRoleGrantPermission() throws ExecutionException, InterruptedException {
-        this.authClient.roleGrantPermission(roleName, keyRangeBegin, keyRangeEnd, Permission.Type.READWRITE).get();
+        this.authClient.roleGrantPermission(roleName, Perm.newBuilder().withKey(keyRangeBegin).withEndKey(keyRangeEnd).withType(Perm.Type.READWRITE).build()).get();
     }
 
     /**
@@ -107,9 +105,9 @@ public class EtcdAuthClientTest {
     public void testKVWithAuth() throws ExecutionException, InterruptedException {
         Throwable err = null;
         try {
-            this.authEtcdClient.getKVClient().put(EtcdUtil.byteSequceFromByteString(testKey), EtcdUtil.byteSequceFromByteString(testName)).get();
-            EtcdKV.RangeResult rangeResult = this.authEtcdClient.getKVClient().get(EtcdUtil.byteSequceFromByteString(testKey)).get();
-            this.test.assertTrue(rangeResult.count != 0 && rangeResult.kvs.get(0).getValue().equals(EtcdUtil.byteSequceFromByteString(testName)));
+            this.authEtcdClient.getKVClient().put(testKey, testName).get();
+            EtcdKV.RangeResult rangeResult = this.authEtcdClient.getKVClient().get((testKey)).get();
+            this.test.assertTrue(rangeResult.count != 0 && rangeResult.kvs.get(0).getValue().equals(testName));
         } catch (StatusRuntimeException sre) {
             err = sre;
         }
@@ -123,8 +121,8 @@ public class EtcdAuthClientTest {
     public void testKVWithoutAuth() throws InterruptedException {
         Throwable err = null;
         try {
-            this.kvClient.put(EtcdUtil.byteSequceFromByteString(testKey), EtcdUtil.byteSequceFromByteString(testName)).get();
-            this.kvClient.get(EtcdUtil.byteSequceFromByteString(testKey)).get();
+            this.kvClient.put(testKey, testName).get();
+            this.kvClient.get(testKey).get();
         } catch (ExecutionException sre) {
             err = sre;
         }
@@ -136,8 +134,8 @@ public class EtcdAuthClientTest {
      */
     @Test(groups = "testAuth", dependsOnGroups = "authEnable")
     public void testRoleGet() throws ExecutionException, InterruptedException {
-        AuthRoleGetResponse roleGetResponse = this.authEtcdClient.getAuthClient().roleGet(roleName).get();
-        this.test.assertTrue(roleGetResponse.getPermCount() != 0);
+        EtcdAuth.GetRoleResult result = this.authEtcdClient.getAuthClient().roleGet(roleName).get();
+        this.test.assertTrue(result.role.perms.length != 0);
     }
 
     /**
