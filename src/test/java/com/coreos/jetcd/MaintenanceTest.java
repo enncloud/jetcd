@@ -1,10 +1,8 @@
 package com.coreos.jetcd;
 
-import com.coreos.jetcd.api.SnapshotResponse;
-import com.coreos.jetcd.api.StatusResponse;
 import com.coreos.jetcd.exception.AuthFailedException;
 import com.coreos.jetcd.exception.ConnectException;
-import com.google.protobuf.ByteString;
+
 import org.testng.annotations.Test;
 import org.testng.asserts.Assertion;
 
@@ -19,7 +17,7 @@ public class MaintenanceTest {
     private final EtcdClient etcdClient;
     private final EtcdMaintenance maintenance;
     private final Assertion test = new Assertion();
-    private volatile ByteString snapshotBlob;
+    private volatile byte[] snapshotBlob;
     private CountDownLatch finishLatch = new CountDownLatch(1);
 
     public MaintenanceTest() throws AuthFailedException, ConnectException {
@@ -32,8 +30,8 @@ public class MaintenanceTest {
      */
     @Test
     public void testStatusMember() throws ExecutionException, InterruptedException {
-        StatusResponse statusResponse = maintenance.statusMember().get();
-        test.assertTrue(statusResponse.getDbSize() > 0);
+        EtcdMaintenance.StatusResult statusResult = maintenance.statusMember().get();
+        test.assertTrue(statusResult.status.dbSize > 0);
     }
 
     /**
@@ -55,15 +53,18 @@ public class MaintenanceTest {
     void testAddSnapshotCallback() {
         maintenance.setSnapshotCallback(new EtcdMaintenance.SnapshotCallback() {
             @Override
-            public synchronized void onSnapShot(SnapshotResponse snapshotResponse) {
+            public synchronized void onSnapShot(EtcdMaintenance.SnapshotResult snapshotResult) {
                 // blob contains the next chunk of the snapshot in the snapshot stream, blob is the bytes snapshot.
                 // remaining_bytes is the number of blob bytes to be sent after this message
+                byte[] newBlock = snapshotResult.blob.getBytes();
                 if (snapshotBlob == null) {
-                    snapshotBlob = snapshotResponse.getBlob();
+                    snapshotBlob = newBlock;
                 } else {
-                    snapshotBlob = snapshotBlob.concat(snapshotResponse.getBlob());
+                    byte[] temp = new byte[newBlock.length+snapshotBlob.length];
+                    System.arraycopy(snapshotBlob, 0, temp, 0, snapshotBlob.length);
+                    System.arraycopy(newBlock, 0, temp, snapshotBlob.length, newBlock.length);
                 }
-                if (snapshotResponse.getRemainingBytes() == 0) {
+                if (snapshotResult.remaining_bytes == 0) {
                     // TODO finishLatch will be replaced by ListenableFuture instance
                     finishLatch.countDown();
                 }

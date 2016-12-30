@@ -1,19 +1,27 @@
 package com.coreos.jetcd;
 
-import java.util.Optional;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
+import com.google.common.util.concurrent.ListenableFuture;
 
-import com.coreos.jetcd.api.AlarmMember;
 import com.coreos.jetcd.api.AlarmRequest;
 import com.coreos.jetcd.api.AlarmResponse;
 import com.coreos.jetcd.api.AlarmType;
 import com.coreos.jetcd.api.DefragmentRequest;
-import com.coreos.jetcd.api.DefragmentResponse;
 import com.coreos.jetcd.api.MaintenanceGrpc;
 import com.coreos.jetcd.api.SnapshotRequest;
 import com.coreos.jetcd.api.SnapshotResponse;
 import com.coreos.jetcd.api.StatusRequest;
-import com.coreos.jetcd.api.StatusResponse;
-import com.google.common.util.concurrent.ListenableFuture;
+import com.coreos.jetcd.data.EtcdHeader;
+import com.coreos.jetcd.maintenance.AlarmAction;
+import com.coreos.jetcd.maintenance.AlarmMember;
+import com.coreos.jetcd.maintenance.Status;
+
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+
 import io.grpc.ManagedChannel;
 import io.grpc.stub.StreamObserver;
 
@@ -27,10 +35,12 @@ public class EtcdMaintenanceImpl implements EtcdMaintenance {
     private MaintenanceGrpc.MaintenanceStub streamStub;
     private volatile StreamObserver<SnapshotResponse> snapshotObserver;
     private volatile SnapshotCallback snapshotCallback;
+    private Supplier<Executor> callExecutor;
 
     public EtcdMaintenanceImpl(ManagedChannel channel, Optional<String> token) {
         this.futureStub = EtcdClientUtil.configureStub(MaintenanceGrpc.newFutureStub(channel), token);
         this.streamStub = EtcdClientUtil.configureStub(MaintenanceGrpc.newStub(channel), token);
+        this.callExecutor = Suppliers.memoize(()-> Executors.newSingleThreadExecutor());
     }
 
     /**
@@ -39,30 +49,38 @@ public class EtcdMaintenanceImpl implements EtcdMaintenance {
      * @return alarm list
      */
     @Override
-    public ListenableFuture<AlarmResponse> listAlarms() {
+    public CompletableFuture<ListAlarmsResult> listAlarms() {
         AlarmRequest alarmRequest = AlarmRequest.newBuilder()
                 .setAlarm(AlarmType.NONE)
                 .setAction(AlarmRequest.AlarmAction.GET)
                 .setMemberID(0).build();
-        return this.futureStub.alarm(alarmRequest);
+        return convertFutureAlarmResponse(this.futureStub.alarm(alarmRequest));
     }
 
     /**
      * disarms a given alarm
      *
-     * @param member the alarm
      * @return the response result
      */
     @Override
-    public ListenableFuture<AlarmResponse> disalarm(AlarmMember member) {
-        AlarmRequest alarmRequest = AlarmRequest.newBuilder()
-                .setAlarm(AlarmType.NOSPACE)
-                .setAction(AlarmRequest.AlarmAction.DEACTIVATE)
-                .setMemberID(member.getMemberID())
-                .build();
-        checkArgument(member.getMemberID() != 0, "the member id can not be 0");
-        checkArgument(member.getAlarm() != AlarmType.NONE, "alarm type can not be NONE");
-        return this.futureStub.alarm(alarmRequest);
+    public CompletableFuture<ListAlarmsResult> disalarm(long memberID, com.coreos.jetcd.maintenance.AlarmType alarmType, AlarmAction action) {
+        AlarmRequest.Builder builder = AlarmRequest.newBuilder()
+                .setMemberID(memberID);
+        if(alarmType == com.coreos.jetcd.maintenance.AlarmType.NONE){
+            builder.setAlarm(AlarmType.NONE);
+        }else{
+            builder.setAlarm(AlarmType.NOSPACE);
+        }
+
+        if(action == AlarmAction.ACTIVATE){
+            builder.setAction(AlarmRequest.AlarmAction.ACTIVATE);
+        }else if(action == AlarmAction.DEACTIVATE){
+            builder.setAction(AlarmRequest.AlarmAction.DEACTIVATE);
+        }else{
+            builder.setAction(AlarmRequest.AlarmAction.GET);
+        }
+        checkArgument(memberID != 0, "the member id can not be 0");
+        return convertFutureAlarmResponse(this.futureStub.alarm(builder.build()));
     }
 
     /**
@@ -81,16 +99,21 @@ public class EtcdMaintenanceImpl implements EtcdMaintenance {
      * multiple times with different endpoints.
      */
     @Override
-    public ListenableFuture<DefragmentResponse> defragmentMember() {
-        return this.futureStub.defragment(DefragmentRequest.getDefaultInstance());
+    public CompletableFuture<EtcdHeader> defragmentMember() {
+        return EtcdUtil.completableFromListenableFuture(this.futureStub.defragment(DefragmentRequest.getDefaultInstance()),
+                response->EtcdUtil.apiToClientHeader(response.getHeader())
+                ,callExecutor.get());
     }
 
     /**
      * get the status of one member
      */
     @Override
-    public ListenableFuture<StatusResponse> statusMember() {
-        return this.futureStub.status(StatusRequest.getDefaultInstance());
+    public CompletableFuture<StatusResult> statusMember() {
+        return EtcdUtil.completableFromListenableFuture(this.futureStub.status(StatusRequest.getDefaultInstance()),
+                response->new StatusResult(EtcdUtil.apiToClientHeader(response.getHeader()),
+                        new Status(response.getVersion(), response.getDbSize(), response.getLeader(), response.getRaftIndex(), response.getRaftTerm())),
+                callExecutor.get());
     }
 
     /**
@@ -109,7 +132,10 @@ public class EtcdMaintenanceImpl implements EtcdMaintenance {
                     if (snapshotCallback != null) {
                         synchronized (EtcdMaintenanceImpl.this) {
                             if (snapshotCallback != null) {
-                                snapshotCallback.onSnapShot(snapshotResponse);
+                                snapshotCallback.onSnapShot(new SnapshotResult(
+                                        EtcdUtil.apiToClientHeader(snapshotResponse.getHeader()),
+                                        snapshotResponse.getRemainingBytes(),
+                                        EtcdUtil.byteSequceFromByteString(snapshotResponse.getBlob())));
                             }
                         }
                     }
@@ -145,5 +171,25 @@ public class EtcdMaintenanceImpl implements EtcdMaintenance {
             snapshotCallback = null;
             snapshotObserver = null;
         }
+    }
+
+
+    private CompletableFuture<ListAlarmsResult> convertFutureAlarmResponse(ListenableFuture<AlarmResponse> futureResponse){
+        return EtcdUtil.completableFromListenableFuture(futureResponse,
+                response-> new ListAlarmsResult(
+                        EtcdUtil.apiToClientHeader(response.getHeader()),
+                        EtcdUtil.convertList(response.getAlarmsList(),
+                                alarm->new AlarmMember(alarm.getMemberID(), convertAlarmType(alarm.getAlarm()))).toArray(new AlarmMember[response.getAlarmsCount()]))
+        , callExecutor.get());
+    }
+
+    private com.coreos.jetcd.maintenance.AlarmType convertAlarmType(AlarmType type){
+        switch (type){
+            case NONE:
+                return com.coreos.jetcd.maintenance.AlarmType.NONE;
+            case NOSPACE:
+                return com.coreos.jetcd.maintenance.AlarmType.NOSPACE;
+        }
+        throw new RuntimeException("unrecognized alarm type");
     }
 }
