@@ -1,6 +1,8 @@
 package com.coreos.jetcd;
 
 
+import com.coreos.jetcd.api.AuthRoleGetResponse;
+import com.coreos.jetcd.api.Permission;
 import com.coreos.jetcd.auth.Perm;
 import com.coreos.jetcd.data.ByteSequence;
 import com.coreos.jetcd.exception.AuthFailedException;
@@ -10,6 +12,7 @@ import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 import org.testng.asserts.Assertion;
 
+import java.nio.charset.Charset;
 import java.util.concurrent.ExecutionException;
 
 import io.grpc.StatusRuntimeException;

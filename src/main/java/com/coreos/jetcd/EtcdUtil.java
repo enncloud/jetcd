@@ -95,7 +95,7 @@ class EtcdUtil {
         return new Lease(response.getID(), response.getTTL(), apiToClientHeader(response.getHeader()));
     }
 
-    static <S, T> CompletableFuture<T> completableFromListenableFuture(final ListenableFuture<S> sourceFuture, final FutureResultConvert<S, T> resultConvert, Executor executor) {
+    static <S, T> CompletableFuture<T> completableFromListenableFuture(final ListenableFuture<S> sourceFuture, final Converter<S, T> resultConvert, Executor executor) {
         CompletableFuture<T> targetFuture = new CompletableFuture<T>() {
             /**
              * If not already completed, completes this CompletableFuture with
@@ -127,7 +127,7 @@ class EtcdUtil {
     }
 
 
-    interface FutureResultConvert<S, T> {
+    interface Converter<S, T> {
         T convert(S source);
     }
 }

@@ -1,12 +1,10 @@
 package com.coreos.jetcd;
 
-import com.coreos.jetcd.api.MemberAddResponse;
-import com.coreos.jetcd.api.MemberListResponse;
-import com.coreos.jetcd.api.MemberRemoveResponse;
-import com.coreos.jetcd.api.MemberUpdateResponse;
-import com.google.common.util.concurrent.ListenableFuture;
+import com.coreos.jetcd.Cluster.Member;
+import com.coreos.jetcd.data.EtcdHeader;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Interface of cluster client talking to etcd
@@ -18,7 +16,7 @@ public interface EtcdCluster {
      *
      * @return
      */
-    ListenableFuture<MemberListResponse> listMember();
+    CompletableFuture<ListMemberResult> listMember();
 
     /**
      * add a new member into the cluster
@@ -26,7 +24,7 @@ public interface EtcdCluster {
      * @param endpoints the address of the new member
      * @return
      */
-    ListenableFuture<MemberAddResponse> addMember(List<String> endpoints);
+    CompletableFuture<AddMemberResult> addMember(List<String> endpoints);
 
     /**
      * removes an existing member from the cluster
@@ -34,7 +32,7 @@ public interface EtcdCluster {
      * @param memberID
      * @return
      */
-    ListenableFuture<MemberRemoveResponse> removeMember(long memberID);
+    CompletableFuture<EtcdHeader> removeMember(long memberID);
 
     /**
      * update peer addresses of the member
@@ -43,6 +41,25 @@ public interface EtcdCluster {
      * @param endpoints
      * @return
      */
-    ListenableFuture<MemberUpdateResponse> updateMember(long memberID, List<String> endpoints);
+    CompletableFuture<EtcdHeader> updateMember(long memberID, List<String> endpoints);
 
+    class ListMemberResult{
+        public final EtcdHeader header;
+        public final Member[] members;
+
+        public ListMemberResult(EtcdHeader header, Member[] members) {
+            this.header = header;
+            this.members = members;
+        }
+    }
+
+    class AddMemberResult{
+        public final EtcdHeader header;
+        public final Member member;
+
+        public AddMemberResult(EtcdHeader header, Member member) {
+            this.header = header;
+            this.member = member;
+        }
+    }
 }
