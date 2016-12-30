@@ -95,6 +95,14 @@ class EtcdUtil {
         return new Lease(response.getID(), response.getTTL(), apiToClientHeader(response.getHeader()));
     }
 
+    static <S, T> List<T> convertList(List<S> sourse, Converter<S, T> converter){
+        List<T> ts = new ArrayList<T>();
+        for(S s: sourse){
+            ts.add(converter.convert(s));
+        }
+        return ts;
+    }
+
     static <S, T> CompletableFuture<T> completableFromListenableFuture(final ListenableFuture<S> sourceFuture, final Converter<S, T> resultConvert, Executor executor) {
         CompletableFuture<T> targetFuture = new CompletableFuture<T>() {
             /**

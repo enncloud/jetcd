@@ -1,8 +1,12 @@
 package com.coreos.jetcd;
 
-import com.coreos.jetcd.api.*;
-import com.google.common.util.concurrent.ListenableFuture;
-import io.grpc.stub.StreamObserver;
+import com.coreos.jetcd.data.ByteSequence;
+import com.coreos.jetcd.data.EtcdHeader;
+import com.coreos.jetcd.maintenance.AlarmAction;
+import com.coreos.jetcd.maintenance.AlarmMember;
+import com.coreos.jetcd.maintenance.Status;
+
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Interface of maintenance talking to etcd
@@ -28,15 +32,14 @@ public interface EtcdMaintenance {
     /**
      * get all active keyspace alarm
      */
-    ListenableFuture<AlarmResponse> listAlarms();
+    CompletableFuture<ListAlarmsResult> listAlarms();
 
     /**
      * disarms a given alarm
      *
-     * @param member the alarm
      * @return the response result
      */
-    ListenableFuture<AlarmResponse> disalarm(AlarmMember member);
+    CompletableFuture<ListAlarmsResult> disalarm(long memberID, com.coreos.jetcd.maintenance.AlarmType alarmType, AlarmAction action);
 
     /**
      * defragment one member of the cluster
@@ -53,12 +56,12 @@ public interface EtcdMaintenance {
      * To defragment multiple members in the cluster, user need to call defragment
      * multiple times with different endpoints.
      */
-    ListenableFuture<DefragmentResponse> defragmentMember();
+    CompletableFuture<EtcdHeader> defragmentMember();
 
     /**
      * get the status of one member
      */
-    ListenableFuture<StatusResponse> statusMember();
+    CompletableFuture<StatusResult> statusMember();
 
     /**
      * Set callback for snapshot.
@@ -84,7 +87,7 @@ public interface EtcdMaintenance {
          *
          * @param snapshotResponse snapshot response
          */
-        void onSnapShot(SnapshotResponse snapshotResponse);
+        void onSnapShot(SnapshotResult snapshotResponse);
 
         /**
          * The onError will be called as exception, and the callback will be canceled.
@@ -92,5 +95,43 @@ public interface EtcdMaintenance {
          * @param throwable
          */
         void onError(Throwable throwable);
+    }
+
+    class ListAlarmsResult{
+        public final EtcdHeader header;
+        public final AlarmMember[] alarms;
+
+        public ListAlarmsResult(EtcdHeader header, AlarmMember[] alarms) {
+            this.header = header;
+            this.alarms = alarms;
+        }
+    }
+
+    class StatusResult{
+        public final EtcdHeader header;
+        public final Status status;
+
+        public StatusResult(EtcdHeader header, Status status) {
+            this.header = header;
+            this.status = status;
+        }
+    }
+
+    class SnapshotResult{
+        // header has the current key-value store information. The first header in the snapshot
+        // stream indicates the point in time of the snapshot.
+        public final EtcdHeader header;
+
+        // remaining_bytes is the number of blob bytes to be sent after this message
+        public final long remaining_bytes;
+
+        // blob contains the next chunk of the snapshot in the snapshot stream.
+        public final ByteSequence blob;
+
+        public SnapshotResult(EtcdHeader header, long remaining_bytes, ByteSequence blob) {
+            this.header = header;
+            this.remaining_bytes = remaining_bytes;
+            this.blob = blob;
+        }
     }
 }
