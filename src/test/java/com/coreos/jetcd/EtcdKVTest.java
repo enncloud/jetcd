@@ -169,5 +169,6 @@ public class EtcdKVTest {
         } catch (Exception e) {
             // empty
         }
+        kvClient.delete(sampleKey).get();
     }
 }

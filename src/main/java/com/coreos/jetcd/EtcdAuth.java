@@ -1,5 +1,7 @@
 package com.coreos.jetcd;
 
+import com.coreos.jetcd.api.AuthRoleDeleteResponse;
+import com.coreos.jetcd.api.User;
 import com.coreos.jetcd.auth.Perm;
 import com.coreos.jetcd.auth.Role;
 import com.coreos.jetcd.data.ByteSequence;
