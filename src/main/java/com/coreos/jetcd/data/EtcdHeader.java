@@ -8,14 +8,12 @@ public class EtcdHeader {
     private final long memberId;
     private final long revision;
     private final long raftTerm;
-    private final long compactRevision;
 
-    public EtcdHeader(long clusterId, long memberId, long revision, long raftTerm, long compactRevision) {
+    public EtcdHeader(long clusterId, long memberId, long revision, long raftTerm) {
         this.clusterId = clusterId;
         this.memberId = memberId;
         this.revision = revision;
         this.raftTerm = raftTerm;
-        this.compactRevision = compactRevision;
     }
 
     public long getClusterId() {
@@ -34,7 +32,4 @@ public class EtcdHeader {
         return raftTerm;
     }
 
-    public long getCompactRevision() {
-        return compactRevision;
-    }
 }

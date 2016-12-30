@@ -155,12 +155,12 @@ public class EtcdWatchImpl implements EtcdWatch {
         if (response.getCreated()) {
             if (response.getCanceled() || response.getCompactRevision() != 0) {
                 watcher.setCanceled(true);
-                requestPair.getValue().completeExceptionally(new WatchCreateException("the start revision has been compacted", apiToClientHeader(response.getHeader(), response.getCompactRevision())));
+                requestPair.getValue().completeExceptionally(new WatchCreateException("the start revision has been compacted", apiToClientHeader(response.getHeader()), response.getCompactRevision()));
                 ;
             }
 
             if (response.getWatchId() == -1 && watcher.callback != null) {
-                requestPair.getValue().completeExceptionally(new WatchCreateException("create watcher failed", apiToClientHeader(response.getHeader(), response.getCompactRevision())));
+                requestPair.getValue().completeExceptionally(new WatchCreateException("create watcher failed", apiToClientHeader(response.getHeader()), response.getCompactRevision()));
             } else {
                 this.watchers.put(watcher.getWatchID(), watcher);
                 watcher.setWatchID(response.getWatchId());
@@ -203,7 +203,7 @@ public class EtcdWatchImpl implements EtcdWatch {
                                     .getKv().getModRevision());
 
                     if (watcher.callback != null) {
-                        watcher.callback.onWatch(apiToClientHeader(watchResponse.getHeader(), watchResponse.getCompactRevision()), apiToClientEvents(events));
+                        watcher.callback.onWatch(apiToClientHeader(watchResponse.getHeader()), watchResponse.getCompactRevision(), apiToClientEvents(events));
                     }
                 } else {
                     watcher.setLastRevision(watchResponse.getHeader().getRevision());

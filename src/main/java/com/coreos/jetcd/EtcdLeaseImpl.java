@@ -163,7 +163,7 @@ public class EtcdLeaseImpl implements EtcdLease {
     public CompletableFuture<EtcdHeader> revoke(Lease lease) {
         LeaseRevokeRequest leaseRevokeRequest = LeaseRevokeRequest.newBuilder().setID(lease.getLeaseID()).build();
         return completableFromListenableFuture(this.leaseFutureStub.leaseRevoke(leaseRevokeRequest),
-                (LeaseRevokeResponse l)->apiToClientHeader(l.getHeader(), -1),
+                (response)->apiToClientHeader(response.getHeader()),
                 callExecutor.get());
     }
 
@@ -321,7 +321,7 @@ public class EtcdLeaseImpl implements EtcdLease {
                 }
             }
         }else if(onceKeepAlives.containsKey(id)){
-            onceKeepAlives.remove(id).complete(apiToClientHeader(leaseKeepAliveResponse.getHeader(), -1));
+            onceKeepAlives.remove(id).complete(apiToClientHeader(leaseKeepAliveResponse.getHeader()));
         }
     }
 

@@ -145,7 +145,7 @@ class EtcdKVImpl implements EtcdKV {
                 .setPhysical(option.isPhysical())
                 .build();
 
-        return EtcdUtil.completableFromListenableFuture(stub.compact(request), response -> EtcdUtil.apiToClientHeader(response.getHeader(), -1), callExecutor.get());
+        return EtcdUtil.completableFromListenableFuture(stub.compact(request), response -> EtcdUtil.apiToClientHeader(response.getHeader()), callExecutor.get());
     }
 
     @Override
@@ -166,7 +166,7 @@ class EtcdKVImpl implements EtcdKV {
                                 break;
                         }
                     }
-                    return new TxnResult(EtcdUtil.apiToClientHeader(response.getHeader(), -1), response.getSucceeded(), operationResults);
+                    return new TxnResult(EtcdUtil.apiToClientHeader(response.getHeader()), response.getSucceeded(), operationResults);
                 }
                 , callExecutor.get());
     }
@@ -176,7 +176,7 @@ class EtcdKVImpl implements EtcdKV {
         if (response.hasPrevKv()) {
             prevKV = EtcdUtil.apiToClientKV(response.getPrevKv());
         }
-        return new PutResult(EtcdUtil.apiToClientHeader(response.getHeader(), -1), prevKV);
+        return new PutResult(EtcdUtil.apiToClientHeader(response.getHeader()), prevKV);
     }
 
     private RangeResult rangeResponseToResult(RangeResponse response) {
@@ -184,7 +184,7 @@ class EtcdKVImpl implements EtcdKV {
         for (com.coreos.jetcd.api.KeyValue kv : response.getKvsList()) {
             kvs.add(EtcdUtil.apiToClientKV(kv));
         }
-        return new RangeResult(EtcdUtil.apiToClientHeader(response.getHeader(), -1), kvs, response.getMore(), response.getCount());
+        return new RangeResult(EtcdUtil.apiToClientHeader(response.getHeader()), kvs, response.getMore(), response.getCount());
     }
 
     private DeleteResult deleteResponseToResult(DeleteRangeResponse response) {
@@ -192,7 +192,7 @@ class EtcdKVImpl implements EtcdKV {
         for (com.coreos.jetcd.api.KeyValue kv : response.getPrevKvsList()) {
             prevKVs.add(EtcdUtil.apiToClientKV(kv));
         }
-        return new DeleteResult(EtcdUtil.apiToClientHeader(response.getHeader(), -1), response.getDeleted(), prevKVs);
+        return new DeleteResult(EtcdUtil.apiToClientHeader(response.getHeader()), response.getDeleted(), prevKVs);
     }
 
     private Compare toCompare(Cmp cmp) {

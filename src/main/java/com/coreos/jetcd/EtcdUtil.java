@@ -84,15 +84,15 @@ class EtcdUtil {
     /**
      * convert API response header to self defined header
      */
-    protected static EtcdHeader apiToClientHeader(ResponseHeader header, long compactRevision) {
+    protected static EtcdHeader apiToClientHeader(ResponseHeader header) {
         if (header == null) {
             return null;
         }
-        return new EtcdHeader(header.getClusterId(), header.getMemberId(), header.getRevision(), header.getRaftTerm(), compactRevision);
+        return new EtcdHeader(header.getClusterId(), header.getMemberId(), header.getRevision(), header.getRaftTerm());
     }
 
     protected static Lease apiToClientLease(LeaseGrantResponse response) {
-        return new Lease(response.getID(), response.getTTL(), apiToClientHeader(response.getHeader(), -1));
+        return new Lease(response.getID(), response.getTTL(), apiToClientHeader(response.getHeader()));
     }
 
     static <S, T> CompletableFuture<T> completableFromListenableFuture(final ListenableFuture<S> sourceFuture, final FutureResultConvert<S, T> resultConvert, Executor executor) {

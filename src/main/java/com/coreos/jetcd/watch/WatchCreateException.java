@@ -8,9 +8,11 @@ import com.coreos.jetcd.data.EtcdHeader;
 public class WatchCreateException extends Exception {
 
     public final EtcdHeader header;
+    public final long       compactRevision;
 
-    public WatchCreateException(String cause, EtcdHeader header) {
+    public WatchCreateException(String cause, EtcdHeader header, long compactRevision) {
         super(cause);
         this.header = header;
+        this.compactRevision = compactRevision;
     }
 }
